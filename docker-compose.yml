@@ -1,0 +1,14 @@
+version: "3.9"
+services:
+  registry:
+    build: ./services/registry
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./packages:/app/packages
+  omega:
+    build: ./services/omega
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./packages:/app/packages
