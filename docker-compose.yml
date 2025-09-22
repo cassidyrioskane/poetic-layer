@@ -1,20 +1,20 @@
 services:
-  registry:
+  mapping-service:
     build:
       context: .
-      dockerfile: services/registry/Dockerfile
+      dockerfile: services/mapping-service/Dockerfile
     ports:
       - "8000:8000"
     volumes:
       - ./packages:/app/packages
-      - ./services/registry:/app/services/registry
+      - ./services/mapping-service:/app/services/mapping-service
 
-  omega:
+  codegen-engine:
     build:
       context: .
-      dockerfile: services/omega/Dockerfile
+      dockerfile: services/codegen-engine/Dockerfile
     ports:
       - "8001:8000"
     volumes:
       - ./packages:/app/packages
-      - ./services/omega:/app/services/omega
+      - ./services/codegen-engine:/app/services/codegen-engine

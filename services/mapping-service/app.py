@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from packages.schemas.models import Motif, MappingSpec
 
-app = FastAPI(title="Registry Service")
+app = FastAPI(title="Mapping Service")
 
 MOTIFS = {}
 MAPPINGS = {}

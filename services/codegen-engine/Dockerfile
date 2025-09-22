@@ -8,8 +8,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy service code + shared packages
 COPY packages ./packages
-COPY services/omega ./services/omega
+COPY services/codegen-engine ./services/codegen-engine
 
 # Expose port and run
 EXPOSE 8000
-CMD ["uvicorn", "services.omega.app:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["uvicorn", "services.codegen-engine.app:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
