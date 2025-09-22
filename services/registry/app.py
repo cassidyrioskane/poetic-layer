@@ -6,6 +6,11 @@ app = FastAPI(title="Registry Service")
 MOTIFS = {}
 MAPPINGS = {}
 
+# ---- SEED ----
+from .seed import seed_data
+seed_data()
+# --------------
+
 @app.post("/motifs")
 def create_motif(motif: Motif):
     MOTIFS[motif.id] = motif
