@@ -5,19 +5,17 @@ function MotifManager() {
   const [motifs, setMotifs] = useState([]);
   const [newMotif, setNewMotif] = useState("");
 
-  // Load motifs on component mount
   useEffect(() => {
     getMotifs()
       .then(data => setMotifs(data))
       .catch(err => console.error("Failed to fetch motifs:", err));
   }, []);
 
-  // Handle adding a motif
   const handleAddMotif = async () => {
     try {
       const created = await createMotif({ text: newMotif });
       setMotifs([...motifs, created]);
-      setNewMotif(""); // clear input
+      setNewMotif("");
     } catch (err) {
       console.error("Failed to create motif:", err);
     }

@@ -1,29 +1,22 @@
+version: "3.8"
 services:
   mapping-service:
-    build:
+    build: 
       context: .
       dockerfile: services/mapping-service/Dockerfile
     ports:
       - "8000:8000"
+    environment:
+      - FRONTEND_URL=http://localhost:3000
     volumes:
       - ./packages:/app/packages
       - ./services/mapping-service:/app/services/mapping-service
-
-  codegen-engine:
-    build:
-      context: .
-      dockerfile: services/codegen-engine/Dockerfile
-    ports:
-      - "8001:8000"
-    volumes:
-      - ./packages:/app/packages
-      - ./services/codegen-engine:/app/services/codegen-engine
 
   frontend:
     build: ./frontend
     ports:
       - "3000:80"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
     volumes:
       - ./frontend:/app
-    stdin_open: true
-    tty: true

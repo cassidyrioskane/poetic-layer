@@ -1,7 +1,16 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from packages.schemas.models import Motif, MappingSpec
 
 app = FastAPI(title="Mapping Service")
+
+# Enable CORS so frontend can access this backend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # frontend dev server
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 MOTIFS = {}
 MAPPINGS = {}
@@ -18,6 +27,7 @@ def create_motif(motif: Motif):
 
 @app.get("/motifs")
 def list_motifs():
+    """Return all motifs"""
     return list(MOTIFS.values())
 
 @app.get("/motifs/{motif_id}")
