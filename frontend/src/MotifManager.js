@@ -44,17 +44,18 @@ function MotifManager() {
   };
 
   return (
-    <div style={{ maxWidth: "700px", margin: "2rem auto" }}>
+    <div className="motif-manager">
       <h2>Add a New Motif</h2>
       <form onSubmit={handleSubmit}>
-        <input placeholder="Name" value={name} onChange={e => setName(e.target.value)} required/>
+        <input placeholder="Name" value={name} onChange={e => setName(e.target.value)} required />
         <br/>
-        <textarea placeholder="Description" value={description} onChange={e => setDescription(e.target.value)} required/>
+        <textarea placeholder="Description" value={description} onChange={e => setDescription(e.target.value)} required />
         <br/>
-        <input placeholder="Category" value={category} onChange={e => setCategory(e.target.value)}/>
+        <input placeholder="Category" value={category} onChange={e => setCategory(e.target.value)} />
         <br/>
         <button type="submit">Submit</button>
       </form>
+
       {message && <p>{message}</p>}
 
       <h2>Existing Motifs</h2>
