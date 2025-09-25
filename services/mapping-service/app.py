@@ -16,6 +16,10 @@ def create_motif(motif: Motif):
     MOTIFS[motif.id] = motif
     return motif
 
+@app.get("/motifs")
+def list_motifs():
+    return list(MOTIFS.values())
+
 @app.get("/motifs/{motif_id}")
 def get_motif(motif_id: str):
     return MOTIFS.get(motif_id)
