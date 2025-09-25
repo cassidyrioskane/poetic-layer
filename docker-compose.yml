@@ -18,3 +18,12 @@ services:
     volumes:
       - ./packages:/app/packages
       - ./services/codegen-engine:/app/services/codegen-engine
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:80"
+    volumes:
+      - ./frontend:/app
+    stdin_open: true
+    tty: true
