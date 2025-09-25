@@ -2,14 +2,16 @@
 FROM node:18-alpine AS build
 WORKDIR /app
 
-# Copy package files and install dependencies (including dev)
-COPY package*.json ./
+# Copy package files first
+COPY package.json package-lock.json ./
+
+# Install all dependencies including devDependencies
 RUN npm install
 
 # Copy the rest of the source code
 COPY . .
 
-# Build production app
+# Build the production app
 RUN npm run build
 
 # Stage 2: Serve with Nginx
