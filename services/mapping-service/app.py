@@ -1,13 +1,15 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import os
 from packages.schemas.models import Motif, MappingSpec
 
 app = FastAPI(title="Mapping Service")
+frontend_url = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 
 # Enable CORS so frontend can access this backend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # frontend dev server
+    allow_origins=[frontend_url],  # frontend dev server
     allow_methods=["*"],
     allow_headers=["*"],
 )
