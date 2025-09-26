@@ -2,14 +2,13 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install deps
+# Install dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy service code + shared packages
-COPY packages ./packages
 COPY services/codegen-engine ./services/codegen-engine
+COPY packages ./packages
 
-# Expose port and run
-EXPOSE 8000
-CMD ["uvicorn", "services.codegen-engine.app:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+EXPOSE 8001
+CMD ["uvicorn", "services.codegen_engine.app:app", "--host", "0.0.0.0", "--port", "8001"]

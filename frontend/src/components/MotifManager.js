@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { getMotifs, createMotif } from "./api";
+import { getMotifs, createMotif } from "../api";
 
 function MotifManager() {
   const [motifs, setMotifs] = useState([]);
