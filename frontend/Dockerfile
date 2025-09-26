@@ -1,17 +1,17 @@
 # Stage 1: Build React app
-FROM node:18-alpine AS build
+FROM node:18-bullseye-slim AS build
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
 
-# Install all dependencies (including devDependencies)
-RUN npm install
+# Install dependencies (react-scripts included)
+RUN npm ci
 
-# Copy all frontend source files
+# Copy frontend source code
 COPY . ./
 
-# Build production files
+# Build production-ready app
 RUN npm run build
 
 # Stage 2: Serve with Nginx

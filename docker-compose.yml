@@ -2,7 +2,7 @@ version: "3.8"
 services:
   mapping-service:
     build:
-      context: .                          # repo root
+      context: .
       dockerfile: services/mapping-service/Dockerfile
     ports:
       - "8000:8000"
@@ -11,7 +11,7 @@ services:
 
   frontend:
     build:
-      context: ./frontend                 # frontend folder as context
+      context: ./frontend
       dockerfile: Dockerfile
     ports:
       - "3000:80"
