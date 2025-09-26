@@ -6,11 +6,9 @@ services:
       context: .
       dockerfile: frontend/Dockerfile
     ports:
-      - "3000:80" # Nginx serves on 80 inside container
+      - "3000:80"
     depends_on:
       - mapping-service
-    environment:
-      - REACT_APP_API_URL=http://localhost:8000
 
   mapping-service:
     build:
