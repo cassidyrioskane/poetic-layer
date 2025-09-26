@@ -6,10 +6,11 @@ services:
       context: .
       dockerfile: frontend/Dockerfile
     ports:
-      - "3000:80"
+      - "3000:80" # Nginx serves on 80 inside container
     depends_on:
       - mapping-service
-      - codegen-engine
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
 
   mapping-service:
     build:
@@ -17,16 +18,3 @@ services:
       dockerfile: services/mapping-service/Dockerfile
     ports:
       - "8000:8000"
-    volumes:
-      - ./services/mapping-service:/app/services/mapping-service
-      - ./packages:/app/packages
-
-  codegen-engine:
-    build:
-      context: .
-      dockerfile: services/codegen-engine/Dockerfile
-    ports:
-      - "8001:8001"
-    volumes:
-      - ./services/codegen-engine:/app/services/codegen-engine
-      - ./packages:/app/packages

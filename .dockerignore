@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Node / Frontend
+node_modules/
+build/
+npm-debug.log
+yarn-error.log
+
+# Environments
+.env
+.venv
+
+# Git + Editor cruft
+.git
+.gitignore
+.DS_Store
+.vscode
+.idea

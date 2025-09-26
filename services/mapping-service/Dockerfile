@@ -6,9 +6,9 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy service code + shared packages
-COPY services/mapping-service ./services/mapping-service
-COPY packages ./packages
+# Copy service code only
+COPY services/mapping-service/ ./services/mapping-service/
 
+# Expose port and run
 EXPOSE 8000
-CMD ["uvicorn", "services.mapping_service.app:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "services.mapping-service.app:app", "--host", "0.0.0.0", "--port", "8000"]
