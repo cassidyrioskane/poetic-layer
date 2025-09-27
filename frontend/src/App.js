@@ -1,5 +1,5 @@
 import React from 'react';
-import MotifManager from './MotifManager';
+import MotifManager from './components/MotifManager'
 import './App.css';
 
 function App() {
