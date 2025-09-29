@@ -1,10 +1,9 @@
-version: "3.9"
-
 services:
   frontend:
     build:
       context: .
       dockerfile: frontend/Dockerfile
+    image: poetic-layer-frontend:1.0
     ports:
       - "3000:80"
     depends_on:
@@ -14,5 +13,6 @@ services:
     build:
       context: .
       dockerfile: services/mapping-service/Dockerfile
+    image: poetic-layer-mapping-service:1.0
     ports:
       - "8000:8000"
