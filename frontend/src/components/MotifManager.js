@@ -1,133 +1,80 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 import { getMotifs, createMotif } from "../api";
+import { v4 as uuidv4 } from "uuid"; // you'll need to install this: npm install uuid
 
 export default function MotifManager() {
   const [motifs, setMotifs] = useState([]);
-  const [form, setForm] = useState({
-    id: "",
-    name: "",
-    text: "",
-    tags: "",
-    ethics: "",
-    version: "1.0.0",
-    provenance: {"author": "system", "source": "seed"},
-  });
-  const [error, setError] = useState("");
+  const [name, setName] = useState("");
+  const [text, setText] = useState("");
+  const [tags, setTags] = useState("");
 
-  // Load motifs on mount
   useEffect(() => {
-    getMotifs()
-      .then(setMotifs)
-      .catch((err) => setError(err.message));
+    loadMotifs();
   }, []);
 
-  // Handle form changes
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setForm({ ...form, [name]: value });
-  };
+  async function loadMotifs() {
+    const data = await getMotifs();
+    setMotifs(data);
+  }
 
-  // Submit form
-  const handleSubmit = async (e) => {
+  async function handleSubmit(e) {
     e.preventDefault();
-    setError("");
 
-    // Basic validation for required fields
-    if (!form.id || !form.name || !form.text || !form.version || !form.provenance) {
-      setError("Please fill out all required fields.");
-      return;
-    }
+    const motifData = {
+      id: uuidv4(), // auto-generate unique ID
+      name,
+      text,
+      tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
+      ethics: {}, // empty since we're not using it now
+      version: "1.0.0", // fixed default
+      provenance: {
+        source: "user",
+        method: "manual-entry",
+      },
+    };
 
-    try {
-      // Parse provenance and ethics JSON if provided
-      const provenanceObj = JSON.parse(form.provenance || "{}");
-      const ethicsObj = form.ethics ? JSON.parse(form.ethics) : {};
+    await createMotif(motifData);
+    await loadMotifs();
 
-      const motif = {
-        id: form.id,
-        name: form.name,
-        text: form.text,
-        tags: form.tags ? form.tags.split(",").map((t) => t.trim()) : [],
-        ethics: ethicsObj,
-        version: form.version,
-        provenance: provenanceObj,
-      };
-
-      const saved = await createMotif(motif);
-      setMotifs([...motifs, saved]);
-
-      // Reset form
-      setForm({
-        id: "",
-        name: "",
-        text: "",
-        tags: "",
-        ethics: "",
-        version: "",
-        provenance: "",
-      });
-    } catch (err) {
-      setError("Failed to save motif: " + err.message);
-    }
-  };
+    // clear form
+    setName("");
+    setText("");
+    setTags("");
+  }
 
   return (
     <div>
       <h2>Motif Manager</h2>
 
-      {error && <p style={{ color: "red" }}>{error}</p>}
-
       <form onSubmit={handleSubmit}>
-        <input
-          name="id"
-          placeholder="ID (required)"
-          value={form.id}
-          onChange={handleChange}
-        />
-        <input
-          name="name"
-          placeholder="Name (required)"
-          value={form.name}
-          onChange={handleChange}
-        />
-        <textarea
-          name="text"
-          placeholder="Text (required)"
-          value={form.text}
-          onChange={handleChange}
-        />
-        <input
-          name="tags"
-          placeholder="Tags (comma-separated)"
-          value={form.tags}
-          onChange={handleChange}
-        />
-        <textarea
-          name="ethics"
-          placeholder='Ethics JSON (optional, e.g. {"safety":["rule1"]})'
-          value={form.ethics}
-          onChange={handleChange}
-        />
-        <input
-          name="version"
-          placeholder="Version (required)"
-          value={form.version}
-          onChange={handleChange}
-        />
-        <textarea
-          name="provenance"
-          placeholder='Provenance JSON (required, e.g. {"source":"manual"})'
-          value={form.provenance}
-          onChange={handleChange}
-        />
-        <button type="submit">Add Motif</button>
+        <div>
+          <label>Name</label><br />
+          <input value={name} onChange={(e) => setName(e.target.value)} required />
+        </div>
+
+        <div>
+          <label>Text</label><br />
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            rows="4"
+            required
+          />
+        </div>
+
+        <div>
+          <label>Tags (comma-separated)</label><br />
+          <input value={tags} onChange={(e) => setTags(e.target.value)} />
+        </div>
+
+        <button type="submit">Create Motif</button>
       </form>
 
       <h3>Existing Motifs</h3>
       <ul>
         {motifs.map((m) => (
           <li key={m.id}>
-            <strong>{m.name}</strong>: {m.text}
+            <strong>{m.name}</strong> — {m.text.slice(0, 50)}...
           </li>
         ))}
       </ul>
