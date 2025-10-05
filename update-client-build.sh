@@ -1,63 +1,171 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -Eeuo pipefail
 
-echo "=== Building Frontend ==="
-cd frontend
-npm install
-npm run build
-cd ..
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CLIENT_BUILD_DIR="$ROOT_DIR/client-build"
 
-echo "=== Preparing Client Build Folder ==="
-CLIENT_BUILD_DIR="client-build"
+log(){ printf "[%(%H:%M:%S)T] %s\n" -1 "$*"; }
+fail(){ echo "❌ $*"; exit 1; }
 
-# Clear previous build
-rm -rf $CLIENT_BUILD_DIR
-mkdir -p $CLIENT_BUILD_DIR/frontend
-mkdir -p $CLIENT_BUILD_DIR/mapping-service
+log "=== Rebuilding client-build ==="
 
-# Copy frontend build
-cp -r frontend/build/* $CLIENT_BUILD_DIR/frontend/
+# 1) Clean build to avoid nesting like client-build/client-build/...
+rm -rf "$CLIENT_BUILD_DIR"
+mkdir -p "$CLIENT_BUILD_DIR"
 
-# Copy mapping service
-cp -r services/mapping-service/* $CLIENT_BUILD_DIR/mapping-service/
+# 2) Frontend: build & copy static files
+log "Building frontend…"
+(
+  cd "$ROOT_DIR/frontend"
+  # Prefer exact lock installs; fall back to npm install if needed
+  if command -v npm >/dev/null 2>&1; then
+    if npm ci >/dev/null 2>&1; then
+      log "npm ci completed"
+    else
+      log "npm ci unavailable; running npm install"
+      npm install
+    fi
+    npm run build
+  else
+    fail "npm not found. Please install Node.js (v18+) and rerun this script."
+  fi
+)
 
-# Write requirements.txt if not present
-pip freeze > $CLIENT_BUILD_DIR/mapping-service/requirements.txt || echo "Could not write requirements.txt, ensure pip is installed."
+mkdir -p "$CLIENT_BUILD_DIR/frontend"
+cp -r "$ROOT_DIR/frontend/build" "$CLIENT_BUILD_DIR/frontend/"
 
-echo "=== Writing run-client-build.sh ==="
+# 3) Backend: copy mapping-service and shared packages
+log "Copying backend service…"
+mkdir -p "$CLIENT_BUILD_DIR/mapping-service"
+cp -r "$ROOT_DIR/services/mapping-service/"* "$CLIENT_BUILD_DIR/mapping-service/"
 
-cat > $CLIENT_BUILD_DIR/run-client-build.sh <<'EOF'
-#!/bin/bash
-echo "=== Starting Client Build ==="
+log "Copying shared packages…"
+cp -r "$ROOT_DIR/packages" "$CLIENT_BUILD_DIR/packages"
 
-# Install backend dependencies if missing
-if ! command -v pip &> /dev/null; then
-    echo 'Installing pip...'
-    python3 -m ensurepip --upgrade
-fi
-python3 -m pip install --upgrade pip
-python3 -m pip install -r client-build/mapping-service/requirements.txt
+# 4) Python requirements for the backend runtime
+cp "$ROOT_DIR/requirements.txt" "$CLIENT_BUILD_DIR/requirements.txt"
 
-# Install 'serve' if missing
-if ! command -v serve &> /dev/null; then
-    echo 'Installing serve...'
-    npm install -g serve
-fi
+# 5) Generate run scripts (Windows & macOS) — keep BOTH, do not remove without approval
+log "Writing run scripts…"
 
-# Start mapping service in background
-python3 client-build/mapping-service/app.py &
+# Windows .bat
+cat > "$CLIENT_BUILD_DIR/run-client-build.bat" <<'EOF'
+@echo off
+setlocal enabledelayedexpansion
+cd /d "%~dp0"
 
-# Find an available port for frontend
-PORT=3000
-while lsof -i:$PORT &>/dev/null; do
-    PORT=$((PORT+1))
-done
+echo === Poetic Layer Client Build ===
 
-echo "Starting frontend on http://localhost:$PORT"
-serve -s client-build/frontend -l $PORT
+REM Prefer python3 if present; otherwise fall back to python
+where python3 >nul 2>nul
+if %ERRORLEVEL%==0 (set PYTHON=python3) else (set PYTHON=python)
+
+%PYTHON% --version >nul 2>nul
+if %ERRORLEVEL% NEQ 0 (
+  echo ❌ Python not found. Please install Python 3.11+ from https://www.python.org/downloads/
+  pause
+  exit /b 1
+)
+
+REM Ensure pip exists (Windows Store python sometimes needs this)
+%PYTHON% -m ensurepip --upgrade >nul 2>nul
+
+REM Create venv if missing
+if not exist venv (
+  echo Creating virtual environment…
+  %PYTHON% -m venv venv || (
+    echo ❌ Failed to create venv.
+    pause
+    exit /b 1
+  )
+)
+
+call venv\Scripts\activate
+
+echo Upgrading pip…
+python -m pip install --upgrade pip
+
+echo Installing backend requirements…
+pip install -r requirements.txt || (
+  echo ❌ pip install failed.
+  pause
+  exit /b 1
+)
+
+REM Make sure Python can import "packages" from client-build root
+set PYTHONPATH=%CD%
+
+echo Starting Mapping Service on http://127.0.0.1:8000 …
+REM If your app.py has a __main__ that starts uvicorn, this works. Otherwise switch to:
+REM python -m uvicorn mapping-service.app:app --host 127.0.0.1 --port 8000
+start "" cmd /c "python mapping-service/app.py"
+
+REM Give server a moment, then open the frontend
+timeout /t 2 >nul
+start "" "%CD%\frontend\build\index.html"
+
+echo All set. Press any key to stop (this does not stop the server window)…
+pause
 EOF
 
-chmod +x $CLIENT_BUILD_DIR/run-client-build.sh
+# macOS .command
+cat > "$CLIENT_BUILD_DIR/run-client-build.command" <<'EOF'
+#!/bin/bash
+set -Eeuo pipefail
+cd "$(dirname "$0")"
 
-echo "=== Client Build Updated Successfully ==="
-echo "You can now run ./client-build/run-client-build.sh to start the app."
+echo "=== Poetic Layer Client Build ==="
+
+# Prefer python3
+if command -v python3 >/dev/null 2>&1; then
+  PY=python3
+elif command -v python >/dev/null 2>&1; then
+  PY=python
+else
+  echo "❌ Python not found. Please install Python 3.11+ (Homebrew: brew install python) and rerun."
+  exit 1
+fi
+
+# Ensure pip exists
+$PY -m ensurepip --upgrade >/dev/null 2>&1 || true
+
+# Create venv if missing
+if [ ! -d "venv" ]; then
+  echo "Creating virtual environment…"
+  $PY -m venv venv
+fi
+
+source venv/bin/activate
+
+echo "Upgrading pip…"
+python -m pip install --upgrade pip
+
+echo "Installing backend requirements…"
+pip install -r requirements.txt
+
+# Ensure Python can import the local "packages" package
+export PYTHONPATH="$PWD"
+
+echo "Starting Mapping Service on http://127.0.0.1:8000 …"
+# If app.py does not start uvicorn by itself, use the line below instead.
+# python -m uvicorn mapping-service.app:app --host 127.0.0.1 --port 8000
+( python mapping-service/app.py ) >/tmp/mapping-service.log 2>&1 &
+
+sleep 2
+open "frontend/build/index.html" >/dev/null 2>&1 || true
+
+echo "All set. Close this window to end."
+EOF
+chmod +x "$CLIENT_BUILD_DIR/run-client-build.command"
+
+# 6) Sanity checks — fail fast if something is missing
+log "Verifying client-build layout…"
+
+[ -f "$CLIENT_BUILD_DIR/requirements.txt" ] || fail "requirements.txt missing in client-build/"
+[ -f "$CLIENT_BUILD_DIR/mapping-service/app.py" ] || fail "mapping-service/app.py missing"
+[ -f "$CLIENT_BUILD_DIR/packages/schemas/models.py" ] || fail "packages/schemas/models.py missing"
+[ -f "$CLIENT_BUILD_DIR/frontend/build/index.html" ] || fail "frontend/build/index.html missing"
+[ -f "$CLIENT_BUILD_DIR/run-client-build.bat" ] || fail "run-client-build.bat missing"
+[ -f "$CLIENT_BUILD_DIR/run-client-build.command" ] || fail "run-client-build.command missing"
+
+log "✅ Client build is ready at: $CLIENT_BUILD_DIR"

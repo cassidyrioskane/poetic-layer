@@ -22,8 +22,24 @@ from .seed import seed_data
 seed_data()
 # --------------
 
+
 @app.post("/motifs")
 def create_motif(motif: Motif):
+    # Auto-generate ID
+    if not motif.id:
+        motif.id = str(uuid.uuid4())
+
+    # Auto-generate version
+    if not motif.version:
+        motif.version = "1.0"
+
+    # Auto-generate provenance
+    if not motif.provenance:
+        motif.provenance = {
+            "created_by": "system",
+            "created_at": datetime.utcnow().isoformat()
+        }
+
     MOTIFS[motif.id] = motif
     return motif
 
