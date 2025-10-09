@@ -1,6 +1,8 @@
 FROM python:3.11-slim
 
 WORKDIR /app
+RUN mkdir -p /app/data
+VOLUME ["/app/data"]
 
 # Copy top-level requirements and install
 COPY requirements.txt ./

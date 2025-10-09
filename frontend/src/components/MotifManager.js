@@ -1,83 +1,111 @@
-import React, { useState, useEffect } from "react";
-import { getMotifs, createMotif } from "../api";
-import { v4 as uuidv4 } from "uuid"; // you'll need to install this: npm install uuid
+// frontend/src/components/MotifManager.js
+import React, { useEffect, useState } from "react";
+import { getMotifs, createMotif, deleteMotif } from "../api";
 
-export default function MotifManager() {
+export default function MotifManager({ onRefresh }) {
   const [motifs, setMotifs] = useState([]);
   const [name, setName] = useState("");
   const [text, setText] = useState("");
-  const [tags, setTags] = useState("");
+  const [message, setMessage] = useState("");
+
+  const load = async () => {
+    try {
+      const data = await getMotifs();
+      setMotifs(data);
+      onRefresh?.(data);
+    } catch (e) {
+      setMessage(`❌ ${e.message}`);
+    }
+  };
 
   useEffect(() => {
-    loadMotifs();
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function loadMotifs() {
-    const data = await getMotifs();
-    setMotifs(data);
-  }
-
-  async function handleSubmit(e) {
+  const handleCreate = async (e) => {
     e.preventDefault();
+    try {
+      const created = await createMotif({
+        name: name || "Untitled",
+        text: text || "",
+        tags: [],
+      });
+      setName("");
+      setText("");
+      await load();
+      setMessage("✅ Motif created");
+    } catch (e) {
+      setMessage(`❌ ${e.message}`);
+    }
+  };
 
-    const motifData = {
-      id: uuidv4(), // auto-generate unique ID
-      name,
-      text,
-      tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
-      ethics: {}, // empty since we're not using it now
-      version: "1.0.0", // fixed default
-      provenance: {
-        source: "user",
-        method: "manual-entry",
-      },
-    };
-
-    await createMotif(motifData);
-    await loadMotifs();
-
-    // clear form
-    setName("");
-    setText("");
-    setTags("");
-  }
+  const handleDelete = async (id) => {
+    try {
+      await deleteMotif(id);
+      await load();
+    } catch (e) {
+      setMessage(`❌ ${e.message}`);
+    }
+  };
 
   return (
-    <div>
-      <h2>Motif Manager</h2>
+    <div style={{ padding: 12 }}>
+      <h2>Motifs</h2>
 
-      <form onSubmit={handleSubmit}>
-        <div>
-          <label>Name</label><br />
-          <input value={name} onChange={(e) => setName(e.target.value)} required />
-        </div>
-
-        <div>
-          <label>Text</label><br />
-          <textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            rows="4"
-            required
-          />
-        </div>
-
-        <div>
-          <label>Tags (comma-separated)</label><br />
-          <input value={tags} onChange={(e) => setTags(e.target.value)} />
-        </div>
-
-        <button type="submit">Create Motif</button>
+      <form onSubmit={handleCreate} style={{ marginBottom: 12 }}>
+        <input
+          placeholder="Name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
+          style={{ width: "100%", marginBottom: 8 }}
+        />
+        <textarea
+          placeholder="Text"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          rows={4}
+          style={{ width: "100%", marginBottom: 8 }}
+        />
+        <button type="submit">Add Motif</button>
       </form>
 
-      <h3>Existing Motifs</h3>
-      <ul>
-        {motifs.map((m) => (
-          <li key={m.id}>
-            <strong>{m.name}</strong> — {m.text.slice(0, 50)}...
-          </li>
-        ))}
-      </ul>
+      {message && <p>{message}</p>}
+
+      {motifs.length === 0 ? (
+        <p>No motifs yet</p>
+      ) : (
+        <table border="1" cellPadding="6" style={{ width: "100%", marginTop: 8 }}>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Preview</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {motifs.map((m) => (
+              <tr key={m.id}>
+                <td>{m.name}</td>
+                <td
+                  style={{
+                    maxWidth: 600,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {m.text}
+                </td>
+                <td>
+                  <button onClick={() => handleDelete(m.id)}>Delete</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }

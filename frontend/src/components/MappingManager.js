@@ -1,138 +1,160 @@
-import React, { useEffect, useState } from "react";
-import { getMappings, createMapping, getMotifs } from "../api";
-import { v4 as uuidv4 } from "uuid";
+// frontend/src/components/MappingManager.js
+import React, { useEffect, useMemo, useState } from "react";
+import { getMotifs, getMappings, createMapping, runMapping } from "../api";
 
-export default function MappingManager() {
-  const [mappings, setMappings] = useState([]);
+const BUILTIN_TYPES = [
+  { value: "uppercase", label: "Uppercase (demo)" },
+  { value: "append", label: "Append Text (demo)" },
+  { value: "echo", label: "Echo (demo)" },
+];
+
+export default function MappingManager({ onNewOutput }) {
   const [motifs, setMotifs] = useState([]);
-  const [newMapping, setNewMapping] = useState({
-    motif_id: "",
-    type: "ode",
-  });
+  const [mappings, setMappings] = useState([]);
+
+  const [selectedMotif, setSelectedMotif] = useState("");
+  const [mappingType, setMappingType] = useState("uppercase");
+  const [appendText, setAppendText] = useState("");
+  const [message, setMessage] = useState("");
+
+  const load = async () => {
+    try {
+      const [ms, specs] = await Promise.all([getMotifs(), getMappings()]);
+      setMotifs(ms);
+      setMappings(specs);
+    } catch (e) {
+      setMessage(`❌ ${e.message}`);
+    }
+  };
 
   useEffect(() => {
-    // Load existing mappings and motifs
-    const fetchData = async () => {
-      try {
-        const [mappingsData, motifsData] = await Promise.all([
-          getMappings(),
-          getMotifs(),
-        ]);
-        setMappings(mappingsData);
-        setMotifs(motifsData);
-      } catch (err) {
-        console.error("Error loading data:", err);
-      }
-    };
-    fetchData();
+    load();
   }, []);
 
-  const handleCreate = async () => {
-    if (!newMapping.motif_id) {
-      alert("Please select a motif before creating a mapping.");
+  const motifMap = useMemo(() => {
+    const map = {};
+    for (const m of motifs) map[m.id] = m;
+    return map;
+  }, [motifs]);
+
+  const handleCreateSpec = async () => {
+    if (!selectedMotif) {
+      setMessage("❌ Select a motif first");
       return;
     }
-
-    const mappingPayload = {
-      id: uuidv4(),
-      motif_id: newMapping.motif_id,
-      type: newMapping.type,
-      signature: {},
-      constraints: {},
-      codegen_ref: "default_codegen",
-      params_schema: {},
-      tests: [],
-      score: 0,
-      version: "1.0",
-    };
-
     try {
-      const created = await createMapping(mappingPayload);
-      setMappings([...mappings, created]);
-      setNewMapping({ motif_id: "", type: "ode" });
-    } catch (err) {
-      console.error("Error creating mapping:", err);
-      alert("Failed to create mapping. Check the console for details.");
+      const spec = await createMapping({
+        type: mappingType,
+        signature: { input_motif_id: selectedMotif },
+        params_schema: {},
+        constraints: {},
+        tests: [],
+        version: "1.0",
+      });
+      setMappings((prev) => [...prev, spec]);
+      setMessage("✅ Mapping spec saved");
+    } catch (e) {
+      setMessage(`❌ ${e.message}`);
+    }
+  };
+
+  const handleRun = async () => {
+    if (!selectedMotif) {
+      setMessage("❌ Select a motif first");
+      return;
+    }
+    try {
+      const payload = {
+        type: mappingType,
+        signature: { input_motif_id: selectedMotif },
+        params:
+          mappingType === "append"
+            ? { append_text: appendText }
+            : {},
+      };
+      const res = await runMapping(payload);
+      onNewOutput?.(res.output);
+      setMessage("✅ Mapping executed");
+      await load();
+    } catch (e) {
+      setMessage(`❌ ${e.message}`);
     }
   };
 
   return (
-    <div className="p-4">
-      <h2 className="text-xl font-bold mb-4">Mapping Manager</h2>
+    <div style={{ padding: 12 }}>
+      <h2>Mappings</h2>
 
-      {/* Create New Mapping */}
-      <div className="mb-6 space-y-3">
-        <h3 className="font-semibold">Create New Mapping</h3>
+      {message && <p>{message}</p>}
 
-        <div>
-          <label className="block mb-1 text-sm">Motif</label>
+      <div style={{ display: "grid", gap: 8, gridTemplateColumns: "1fr" }}>
+        <label>
+          Input motif:
           <select
-            className="border rounded p-2 w-full"
-            value={newMapping.motif_id}
-            onChange={(e) =>
-              setNewMapping({ ...newMapping, motif_id: e.target.value })
-            }
+            value={selectedMotif}
+            onChange={(e) => setSelectedMotif(e.target.value)}
+            style={{ marginLeft: 8, minWidth: 280 }}
           >
-            <option value="">Select a motif</option>
+            <option value="">-- choose --</option>
             {motifs.map((m) => (
               <option key={m.id} value={m.id}>
                 {m.name}
               </option>
             ))}
           </select>
-        </div>
+        </label>
 
-        <div>
-          <label className="block mb-1 text-sm">Mapping Type</label>
+        <label>
+          Mapping type:
           <select
-            className="border rounded p-2 w-full"
-            value={newMapping.type}
-            onChange={(e) =>
-              setNewMapping({ ...newMapping, type: e.target.value })
-            }
+            value={mappingType}
+            onChange={(e) => setMappingType(e.target.value)}
+            style={{ marginLeft: 8 }}
           >
-            <option value="ode">ODE</option>
-            <option value="pde">PDE</option>
-            <option value="bc">Boundary Condition</option>
-            <option value="regularizer">Regularizer</option>
-            <option value="data_labeler">Data Labeler</option>
-            <option value="search_operator">Search Operator</option>
+            {BUILTIN_TYPES.map((t) => (
+              <option key={t.value} value={t.value}>
+                {t.label}
+              </option>
+            ))}
           </select>
-        </div>
+        </label>
 
-        <button
-          onClick={handleCreate}
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-        >
-          Create Mapping
-        </button>
-      </div>
-
-      {/* List Mappings */}
-      <div>
-        <h3 className="font-semibold mb-2">Existing Mappings</h3>
-        {mappings.length === 0 ? (
-          <p className="text-gray-500">No mappings yet.</p>
-        ) : (
-          <ul className="space-y-2">
-            {mappings.map((mapping) => {
-              const motif = motifs.find((m) => m.id === mapping.motif_id);
-              return (
-                <li
-                  key={mapping.id}
-                  className="border rounded p-2 flex justify-between items-center"
-                >
-                  <div>
-                    <strong>{motif ? motif.name : "Unknown Motif"}</strong> →{" "}
-                    {mapping.type}
-                  </div>
-                  <div className="text-xs text-gray-500">v{mapping.version}</div>
-                </li>
-              );
-            })}
-          </ul>
+        {mappingType === "append" && (
+          <label>
+            Append text:
+            <input
+              value={appendText}
+              onChange={(e) => setAppendText(e.target.value)}
+              style={{ marginLeft: 8, width: "60%" }}
+              placeholder="(demo) text to append"
+            />
+          </label>
         )}
+
+        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+          <button onClick={handleCreateSpec}>Save Mapping Spec</button>
+          <button onClick={handleRun}>Run Mapping</button>
+        </div>
       </div>
+
+      <h3 style={{ marginTop: 16 }}>Existing Specs</h3>
+      {mappings.length === 0 ? (
+        <p>No mapping specs yet</p>
+      ) : (
+        <ul>
+          {mappings.map((s) => (
+            <li
+              key={s.id || `${s.type}-${s.signature?.input_motif_id || ""}`}
+            >
+              <code>{s.type}</code> on motif{" "}
+              <code>{s.signature?.input_motif_id}</code>
+              {s.signature?.input_motif_id &&
+                motifMap[s.signature.input_motif_id] &&
+                ` (${motifMap[s.signature.input_motif_id].name})`}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
