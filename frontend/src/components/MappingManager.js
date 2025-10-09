@@ -1,4 +1,3 @@
-// frontend/src/components/MappingManager.js
 import React, { useEffect, useMemo, useState } from "react";
 import { getMotifs, getMappings, createMapping, runMapping } from "../api";
 
@@ -8,35 +7,40 @@ const BUILTIN_TYPES = [
   { value: "echo", label: "Echo (demo)" },
 ];
 
-export default function MappingManager({ onNewOutput }) {
+export default function MappingManager({ onNewOutput, refreshSignal }) {
   const [motifs, setMotifs] = useState([]);
   const [mappings, setMappings] = useState([]);
-
   const [selectedMotif, setSelectedMotif] = useState("");
   const [mappingType, setMappingType] = useState("uppercase");
   const [appendText, setAppendText] = useState("");
   const [message, setMessage] = useState("");
 
+  // --- Load motifs and mapping specs ---
   const load = async () => {
     try {
       const [ms, specs] = await Promise.all([getMotifs(), getMappings()]);
       setMotifs(ms);
       setMappings(specs);
+      if (ms.length === 0) setMessage("No motifs available yet.");
+      else setMessage("");
     } catch (e) {
       setMessage(`❌ ${e.message}`);
     }
   };
 
+  // --- Load on mount and when refreshSignal changes ---
   useEffect(() => {
     load();
-  }, []);
+  }, [refreshSignal]);
 
+  // --- Derived map for display ---
   const motifMap = useMemo(() => {
     const map = {};
     for (const m of motifs) map[m.id] = m;
     return map;
   }, [motifs]);
 
+  // --- Create new mapping spec ---
   const handleCreateSpec = async () => {
     if (!selectedMotif) {
       setMessage("❌ Select a motif first");
@@ -58,6 +62,7 @@ export default function MappingManager({ onNewOutput }) {
     }
   };
 
+  // --- Run mapping on selected motif ---
   const handleRun = async () => {
     if (!selectedMotif) {
       setMessage("❌ Select a motif first");
@@ -68,9 +73,7 @@ export default function MappingManager({ onNewOutput }) {
         type: mappingType,
         signature: { input_motif_id: selectedMotif },
         params:
-          mappingType === "append"
-            ? { append_text: appendText }
-            : {},
+          mappingType === "append" ? { append_text: appendText } : {},
       };
       const res = await runMapping(payload);
       onNewOutput?.(res.output);
@@ -102,6 +105,14 @@ export default function MappingManager({ onNewOutput }) {
               </option>
             ))}
           </select>
+          <button
+            style={{ marginLeft: 8 }}
+            type="button"
+            onClick={load}
+            title="Refresh motifs list"
+          >
+            ↻ Refresh Motifs
+          </button>
         </label>
 
         <label>

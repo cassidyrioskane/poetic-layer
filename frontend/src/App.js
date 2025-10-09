@@ -5,6 +5,7 @@ import MappingManager from "./components/MappingManager";
 
 export default function App() {
   const [lastOutput, setLastOutput] = useState(null);
+  const [refreshSignal, setRefreshSignal] = useState(Date.now());
 
   return (
     <div style={{ maxWidth: 1000, margin: "24px auto", fontFamily: "system-ui, sans-serif" }}>
@@ -12,10 +13,13 @@ export default function App() {
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
         <div style={{ border: "1px solid #ccc", borderRadius: 8 }}>
-          <MotifManager onRefresh={() => { /* hook available */ }} />
+          <MotifManager onRefresh={() => setRefreshSignal(Date.now())} />
         </div>
         <div style={{ border: "1px solid #ccc", borderRadius: 8 }}>
-          <MappingManager onNewOutput={setLastOutput} />
+          <MappingManager
+            refreshSignal={refreshSignal}
+            onNewOutput={setLastOutput}
+          />
         </div>
       </div>
 

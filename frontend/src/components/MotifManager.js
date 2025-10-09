@@ -20,8 +20,7 @@ export default function MotifManager({ onRefresh }) {
 
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, []); // ✅ no refreshSignal here
 
   const handleCreate = async (e) => {
     e.preventDefault();
