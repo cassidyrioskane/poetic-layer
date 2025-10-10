@@ -1,19 +1,19 @@
-version: "3.9"
-
+# docker-compose.yml
+# Compose spec "version" line removed (deprecated as of Compose v2)
 services:
   frontend:
     build:
       context: .
       dockerfile: frontend/Dockerfile
-    # inject the backend URL so React builds with the right API base
     environment:
+      # The frontend build will bake in this API base at build time
       - REACT_APP_API_URL=http://mapping_service:8000
     ports:
       - "3000:80"
     depends_on:
-      - mapping-service
+      - mapping_service
 
-  mapping-service:
+  mapping_service:
     build:
       context: .
       dockerfile: services/mapping_service/Dockerfile
