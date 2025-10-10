@@ -7,7 +7,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy service code + shared packages
-COPY services/codegen-engine ./services/codegen-engine
+COPY services/codegen_engine ./services/codegen_engine
 COPY packages ./packages
 
 EXPOSE 8001

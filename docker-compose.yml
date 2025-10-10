@@ -7,7 +7,7 @@ services:
       dockerfile: frontend/Dockerfile
     # inject the backend URL so React builds with the right API base
     environment:
-      - REACT_APP_API_URL=http://mapping-service:8000
+      - REACT_APP_API_URL=http://mapping_service:8000
     ports:
       - "3000:80"
     depends_on:
@@ -16,7 +16,7 @@ services:
   mapping-service:
     build:
       context: .
-      dockerfile: services/mapping-service/Dockerfile
+      dockerfile: services/mapping_service/Dockerfile
     environment:
       - FRONTEND_URL=http://localhost:3000
     ports:
