@@ -1,9 +1,13 @@
+version: "3.9"
+
 services:
   frontend:
     build:
       context: .
       dockerfile: frontend/Dockerfile
-    image: poetic-layer-frontend:1.0
+    # inject the backend URL so React builds with the right API base
+    environment:
+      - REACT_APP_API_URL=http://mapping-service:8000
     ports:
       - "3000:80"
     depends_on:
@@ -13,6 +17,7 @@ services:
     build:
       context: .
       dockerfile: services/mapping-service/Dockerfile
-    image: poetic-layer-mapping-service:1.0
+    environment:
+      - FRONTEND_URL=http://localhost:3000
     ports:
       - "8000:8000"

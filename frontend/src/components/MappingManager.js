@@ -1,10 +1,27 @@
+// frontend/src/components/MappingManager.js
 import React, { useEffect, useMemo, useState } from "react";
 import { getMotifs, getMappings, createMapping, runMapping } from "../api";
 
+// Built-in and Poetic Layer mapping types
 const BUILTIN_TYPES = [
+  // Core demos
   { value: "uppercase", label: "Uppercase (demo)" },
   { value: "append", label: "Append Text (demo)" },
   { value: "echo", label: "Echo (demo)" },
+  // Linguistic
+  { value: "reverse", label: "Reverse Text" },
+  { value: "mirror", label: "Mirror Text" },
+  { value: "titlecase", label: "Title Case" },
+  { value: "mutate", label: "Vowel Mutation" },
+  { value: "summarize", label: "Summarize (first 8 words)" },
+  { value: "invert_case", label: "Invert Case" },
+  // Poetic
+  { value: "resonance", label: "Resonance" },
+  { value: "echo_chamber", label: "Echo Chamber" },
+  { value: "ethical_mirror", label: "Ethical Mirror" },
+  { value: "motif_merge", label: "Motif Merge" },
+  { value: "temporal_distortion", label: "Temporal Distortion" },
+  { value: "dream_sequence", label: "Dream Sequence" },
 ];
 
 export default function MappingManager({ onNewOutput, refreshSignal }) {
@@ -13,6 +30,7 @@ export default function MappingManager({ onNewOutput, refreshSignal }) {
   const [selectedMotif, setSelectedMotif] = useState("");
   const [mappingType, setMappingType] = useState("uppercase");
   const [appendText, setAppendText] = useState("");
+  const [mergeMotif, setMergeMotif] = useState("");
   const [message, setMessage] = useState("");
 
   // --- Load motifs and mapping specs ---
@@ -68,13 +86,19 @@ export default function MappingManager({ onNewOutput, refreshSignal }) {
       setMessage("❌ Select a motif first");
       return;
     }
+
     try {
+      // build params dynamically
+      const params = {};
+      if (mappingType === "append") params.append_text = appendText;
+      if (mappingType === "motif_merge") params.other_motif_id = mergeMotif;
+
       const payload = {
         type: mappingType,
         signature: { input_motif_id: selectedMotif },
-        params:
-          mappingType === "append" ? { append_text: appendText } : {},
+        params,
       };
+
       const res = await runMapping(payload);
       onNewOutput?.(res.output);
       setMessage("✅ Mapping executed");
@@ -91,6 +115,7 @@ export default function MappingManager({ onNewOutput, refreshSignal }) {
       {message && <p>{message}</p>}
 
       <div style={{ display: "grid", gap: 8, gridTemplateColumns: "1fr" }}>
+        {/* Input motif selector */}
         <label>
           Input motif:
           <select
@@ -115,6 +140,7 @@ export default function MappingManager({ onNewOutput, refreshSignal }) {
           </button>
         </label>
 
+        {/* Mapping type selector */}
         <label>
           Mapping type:
           <select
@@ -130,6 +156,7 @@ export default function MappingManager({ onNewOutput, refreshSignal }) {
           </select>
         </label>
 
+        {/* Parameter inputs for specific mappings */}
         {mappingType === "append" && (
           <label>
             Append text:
@@ -142,12 +169,34 @@ export default function MappingManager({ onNewOutput, refreshSignal }) {
           </label>
         )}
 
+        {mappingType === "motif_merge" && (
+          <label>
+            Merge with motif:
+            <select
+              value={mergeMotif}
+              onChange={(e) => setMergeMotif(e.target.value)}
+              style={{ marginLeft: 8, minWidth: 280 }}
+            >
+              <option value="">-- choose motif to merge with --</option>
+              {motifs
+                .filter((m) => m.id !== selectedMotif)
+                .map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+            </select>
+          </label>
+        )}
+
+        {/* Buttons */}
         <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
           <button onClick={handleCreateSpec}>Save Mapping Spec</button>
-          <button onClick={handleRun}>Run Mapping</button>
+          <button type="button" onClick={handleRun}>Run Mapping</button>
         </div>
       </div>
 
+      {/* Mapping specs list */}
       <h3 style={{ marginTop: 16 }}>Existing Specs</h3>
       {mappings.length === 0 ? (
         <p>No mapping specs yet</p>

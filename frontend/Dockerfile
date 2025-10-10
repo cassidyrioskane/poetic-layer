@@ -1,24 +1,20 @@
-# Stage 1: Build React app
+# ---------- Stage 1: Build React app ----------
 FROM node:18-alpine AS build
-
 WORKDIR /app
 
-# Copy package.json and package-lock.json
+# Copy dependency manifests
 COPY frontend/package*.json ./
-
-# Install dependencies (react-scripts included)
 RUN npm install
 
-# Copy only source files (avoid overwriting node_modules)
+# Copy source
 COPY frontend/src ./src
 COPY frontend/public ./public
 
-# Build production-ready files
+# The build picks up REACT_APP_API_URL from Compose at build time
 RUN npm run build
 
-# Stage 2: Serve with nginx
+# ---------- Stage 2: Serve with nginx ----------
 FROM nginx:alpine
-
 COPY --from=build /app/build /usr/share/nginx/html
 
 EXPOSE 80

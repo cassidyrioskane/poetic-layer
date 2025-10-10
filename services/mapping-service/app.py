@@ -1,8 +1,8 @@
-# services/mapping-service/app.py
 from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Dict, Any
 import os, time, uuid
+from services.mapping_service import mappings
 
 # If your repo already has these models, we keep the import.
 # If fields differ, we coerce inputs below to avoid 422s.
@@ -33,13 +33,21 @@ except Exception:
         score: float | None = None
         version: str = "1.0"
 
-app = FastAPI(title="Mapping Service")
+
+mappings.discover_mappings()
+
+app = FastAPI(title="Mapping Service (Poetic Layer)")
 
 # ---- CORS ----
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[FRONTEND_URL, "http://127.0.0.1:3000"],
+    allow_origins=[
+        FRONTEND_URL,
+        "http://127.0.0.1:3000",
+        "http://frontend",       # 👈 container hostname
+        "http://frontend:80"     # 👈 explicit port
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

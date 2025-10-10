@@ -1,19 +1,15 @@
 FROM python:3.11-slim
 
-WORKDIR /app
-RUN mkdir -p /app/data
-VOLUME ["/app/data"]
+WORKDIR /app/services/mapping-service
 
-# Copy top-level requirements and install
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential && \
+    rm -rf /var/lib/apt/lists/*
 
-# Copy shared packages
-COPY packages ./packages
+RUN pip install fastapi uvicorn
 
-# Copy mapping service source
-COPY services/mapping-service ./services/mapping-service
+COPY services/mapping-service /app/services/mapping-service
 
 EXPOSE 8000
 
-CMD ["uvicorn", "services.mapping-service.app:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
