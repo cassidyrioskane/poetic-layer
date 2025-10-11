@@ -172,7 +172,6 @@ def list_registry_mappings():
         for name, meta in MAPPING_META.items()
     ]
 
-
 # ---------- Execute a Mapping ----------
 @app.post("/mappings/run")
 def run_mapping(spec_payload: Dict[str, Any] = Body(...)):
@@ -203,15 +202,26 @@ def run_mapping(spec_payload: Dict[str, Any] = Body(...)):
     except Exception as e:
         raise HTTPException(500, f"Mapping '{mtype}' failed: {e}")
 
+    # --- Detect image vs text output automatically ---
+    if isinstance(out_text, str) and out_text.strip().startswith("iVBOR"):  # base64-encoded PNG/JPEG magic
+        motif_type = "image"
+        motif_field = {"content": out_text}
+    else:
+        motif_type = "text"
+        motif_field = {"text": out_text}
+
     out = _ensure_motif_dict({
         "name": f"{src['name']} :: {mtype}",
-        "text": out_text,
+        "type": motif_type,
+        **motif_field,
         "tags": src.get("tags", []),
         "ethics": src.get("ethics", {}),
         "provenance": {
             "who": "mapping-service",
             "when": int(time.time()),
             "source_ref": src["id"],
+            "source_name": src["name"],
+            "source_type": src.get("type", "text"),
         },
     })
     MOTIFS[out["id"]] = out
