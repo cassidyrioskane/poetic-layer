@@ -1,6 +1,8 @@
 import random
 
 def motif_merge(motif, params=None):
+    """Interweaves two motifs at the word level, forming a hybrid text that merges their semantic DNA."""
+
     other = params.get("other_text", "")
     a = motif.get("content", "").split()
     b = other.split()

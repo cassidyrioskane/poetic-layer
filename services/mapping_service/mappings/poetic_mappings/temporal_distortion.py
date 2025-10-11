@@ -1,6 +1,8 @@
 import random, re
 
 def temporal_distortion(motif, params=None):
+    """Alters time perception within the motif by inserting temporal markers that fold or stretch narrative duration."""
+
     text = motif.get("content", "")
     time_phrases = ["once", "again", "not yet", "already", "never", "soon", "long ago"]
     sentences = re.split(r'(?<=[.!?]) +', text)

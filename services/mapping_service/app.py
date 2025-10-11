@@ -132,7 +132,12 @@ def delete_motif(motif_id: str):
 # ---------- Mapping Spec Endpoints ----------
 @app.get("/mappings")
 def list_mappings():
-    return list(MAPPINGS.values())
+    from services.mapping_service.mappings import MAPPING_META
+    return [
+        {"type": name, "description": meta["description"]}
+        for name, meta in MAPPING_META.items()
+    ]
+
 
 
 @app.get("/mappings/{mapping_id}")
@@ -157,6 +162,15 @@ def create_mapping(spec_payload: Dict[str, Any] = Body(...)):
     spec_payload.setdefault("version", "1.0")
     MAPPINGS[spec_payload["id"]] = spec_payload
     return spec_payload
+
+# --- Registry (discovered mapping functions + docstrings) ---
+@app.get("/registry/mappings")
+def list_registry_mappings():
+    from services.mapping_service.mappings import MAPPING_META
+    return [
+        {"type": name, "description": meta.get("description", "No description available.")}
+        for name, meta in MAPPING_META.items()
+    ]
 
 
 # ---------- Execute a Mapping ----------

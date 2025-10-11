@@ -6,9 +6,8 @@ export default function MotifManager({ onRefresh }) {
   const [name, setName] = useState("");
   const [text, setText] = useState("");
   const [message, setMessage] = useState("");
-  const [expanded, setExpanded] = useState({}); // track which motifs are expanded
+  const [expanded, setExpanded] = useState({}); // collapsible rows
 
-  // --- Load motifs ---
   const load = async () => {
     try {
       const data = await getMotifs();
@@ -23,13 +22,13 @@ export default function MotifManager({ onRefresh }) {
     load();
   }, []);
 
-  // --- Create a new motif ---
   const handleCreate = async (e) => {
     e.preventDefault();
     try {
       const created = await createMotif({
         name: name || "Untitled",
-        text: text || "",
+        type: "text",
+        content: text || "",
         tags: [],
       });
       setName("");
@@ -41,7 +40,6 @@ export default function MotifManager({ onRefresh }) {
     }
   };
 
-  // --- Delete motif ---
   const handleDelete = async (id) => {
     try {
       await deleteMotif(id);
@@ -51,12 +49,8 @@ export default function MotifManager({ onRefresh }) {
     }
   };
 
-  // --- Toggle expand/collapse ---
   const toggleExpand = (id) => {
-    setExpanded((prev) => ({
-      ...prev,
-      [id]: !prev[id],
-    }));
+    setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
   return (
@@ -104,36 +98,35 @@ export default function MotifManager({ onRefresh }) {
             </tr>
           </thead>
           <tbody>
-            {motifs.map((m) => (
-              <tr key={m.id}>
-                <td style={{ verticalAlign: "top" }}>{m.name}</td>
-                <td
-                  style={{
-                    textAlign: "left",
-                    verticalAlign: "top",
-                    cursor: "pointer",
-                    maxHeight: expanded[m.id] ? "none" : "3.5em",
-                    overflow: expanded[m.id] ? "visible" : "hidden",
-                    whiteSpace: expanded[m.id] ? "pre-wrap" : "nowrap",
-                    textOverflow: expanded[m.id] ? "unset" : "ellipsis",
-                    borderLeft: "4px solid #ccc",
-                    paddingLeft: 6,
-                    userSelect: "text",
-                  }}
-                  title={
-                    expanded[m.id]
-                      ? "Click to collapse text"
-                      : "Click to expand full text"
-                  }
-                  onClick={() => toggleExpand(m.id)}
-                >
-                  {m.text}
-                </td>
-                <td style={{ verticalAlign: "top" }}>
-                  <button onClick={() => handleDelete(m.id)}>Delete</button>
-                </td>
-              </tr>
-            ))}
+            {motifs.map((m) => {
+              const body = m.content ?? m.text ?? "";
+              return (
+                <tr key={m.id}>
+                  <td style={{ verticalAlign: "top" }}>{m.name}</td>
+                  <td
+                    style={{
+                      textAlign: "left",
+                      verticalAlign: "top",
+                      cursor: "pointer",
+                      maxHeight: expanded[m.id] ? "none" : "3.5em",
+                      overflow: expanded[m.id] ? "visible" : "hidden",
+                      whiteSpace: expanded[m.id] ? "pre-wrap" : "nowrap",
+                      textOverflow: expanded[m.id] ? "unset" : "ellipsis",
+                      borderLeft: "4px solid #ccc",
+                      paddingLeft: 6,
+                      userSelect: "text",
+                    }}
+                    title={expanded[m.id] ? "Click to collapse text" : "Click to expand full text"}
+                    onClick={() => toggleExpand(m.id)}
+                  >
+                    {body}
+                  </td>
+                  <td style={{ verticalAlign: "top" }}>
+                    <button onClick={() => handleDelete(m.id)}>Delete</button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}

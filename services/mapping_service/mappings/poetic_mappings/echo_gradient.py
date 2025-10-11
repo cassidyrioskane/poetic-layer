@@ -1,6 +1,8 @@
 import random, re
 
 def echo_gradient(motif, params=None):
+    """Creates recursive echoes of the motif, repeating and mutating phrases like an evolving memory."""
+
     text = motif.get("content", "")
     sentences = re.split(r'(?<=[.!?]) +', text)
     echoes = []

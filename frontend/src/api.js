@@ -59,3 +59,10 @@ export async function runMapping(runSpec) {
   }
   return res.json();
 }
+
+export async function getRegistryMappings() {
+  const res = await fetch(`${API_BASE}/registry/mappings`);
+  if (!res.ok) throw new Error(`Failed to fetch registry mappings: ${res.status}`);
+  return res.json();
+}
+

@@ -1,44 +1,26 @@
-// frontend/src/components/MappingManager.js
 import React, { useEffect, useMemo, useState } from "react";
-import { getMotifs, getMappings, createMapping, runMapping } from "../api";
-
-// Built-in and Poetic Layer mapping types
-const BUILTIN_TYPES = [
-  // Core demos
-  { value: "uppercase", label: "Uppercase (demo)" },
-  { value: "append", label: "Append Text (demo)" },
-  { value: "echo", label: "Echo (demo)" },
-  // Linguistic
-  { value: "reverse", label: "Reverse Text" },
-  { value: "mirror", label: "Mirror Text" },
-  { value: "titlecase", label: "Title Case" },
-  { value: "mutate", label: "Vowel Mutation" },
-  { value: "summarize", label: "Summarize (first 8 words)" },
-  { value: "invert_case", label: "Invert Case" },
-  // Poetic
-  { value: "resonance", label: "Resonance" },
-  { value: "echo_chamber", label: "Echo Chamber" },
-  { value: "ethical_mirror", label: "Ethical Mirror" },
-  { value: "motif_merge", label: "Motif Merge" },
-  { value: "temporal_distortion", label: "Temporal Distortion" },
-  { value: "dream_sequence", label: "Dream Sequence" },
-];
+import { getMotifs, getMappings, getRegistryMappings, createMapping, runMapping } from "../api";
 
 export default function MappingManager({ onNewOutput, refreshSignal }) {
   const [motifs, setMotifs] = useState([]);
-  const [mappings, setMappings] = useState([]);
+  const [mappingSpecs, setMappingSpecs] = useState([]);     // saved/spec’d mappings (unchanged)
+  const [registry, setRegistry] = useState([]);             // discovered mapping functions (with docstrings)
   const [selectedMotif, setSelectedMotif] = useState("");
-  const [mappingType, setMappingType] = useState("uppercase");
-  const [appendText, setAppendText] = useState("");
-  const [mergeMotif, setMergeMotif] = useState("");
+  const [selectedMapping, setSelectedMapping] = useState("");
+  const [mergeMotif, setMergeMotif] = useState("");         // for motif_merge / mycelial_spread
   const [message, setMessage] = useState("");
 
-  // --- Load motifs and mapping specs ---
-  const load = async () => {
+  // Load motifs, registry, and saved specs
+  const loadAll = async () => {
     try {
-      const [ms, specs] = await Promise.all([getMotifs(), getMappings()]);
+      const [ms, reg, specs] = await Promise.all([
+        getMotifs(),
+        getRegistryMappings(),
+        getMappings(),       // keep your existing specs list
+      ]);
       setMotifs(ms);
-      setMappings(specs);
+      setRegistry(reg);
+      setMappingSpecs(specs);
       if (ms.length === 0) setMessage("No motifs available yet.");
       else setMessage("");
     } catch (e) {
@@ -46,55 +28,55 @@ export default function MappingManager({ onNewOutput, refreshSignal }) {
     }
   };
 
-  // --- Load on mount and when refreshSignal changes ---
   useEffect(() => {
-    load();
+    loadAll();
   }, [refreshSignal]);
 
-  // --- Derived map for display ---
   const motifMap = useMemo(() => {
     const map = {};
     for (const m of motifs) map[m.id] = m;
     return map;
   }, [motifs]);
 
-  // --- Create new mapping spec ---
   const handleCreateSpec = async () => {
-    if (!selectedMotif) {
-      setMessage("❌ Select a motif first");
+    if (!selectedMotif || !selectedMapping) {
+      setMessage("❌ Select both a motif and a mapping.");
       return;
     }
     try {
       const spec = await createMapping({
-        type: mappingType,
+        type: selectedMapping,
         signature: { input_motif_id: selectedMotif },
         params_schema: {},
         constraints: {},
         tests: [],
         version: "1.0",
       });
-      setMappings((prev) => [...prev, spec]);
+      setMappingSpecs((prev) => [...prev, spec]);
       setMessage("✅ Mapping spec saved");
     } catch (e) {
       setMessage(`❌ ${e.message}`);
     }
   };
 
-  // --- Run mapping on selected motif ---
   const handleRun = async () => {
-    if (!selectedMotif) {
-      setMessage("❌ Select a motif first");
+    if (!selectedMotif || !selectedMapping) {
+      setMessage("❌ Select both a motif and a mapping.");
       return;
     }
-
     try {
-      // build params dynamically
       const params = {};
-      if (mappingType === "append") params.append_text = appendText;
-      if (mappingType === "motif_merge") params.other_motif_id = mergeMotif;
+      if (selectedMapping === "motif_merge" || selectedMapping === "mycelial_spread") {
+        if (!mergeMotif) {
+          setMessage("❌ Choose a second motif for this mapping.");
+          return;
+        }
+        const other = motifMap[mergeMotif];
+        params.other_text = other?.content ?? other?.text ?? "";
+      }
 
       const payload = {
-        type: mappingType,
+        type: selectedMapping,
         signature: { input_motif_id: selectedMotif },
         params,
       };
@@ -102,11 +84,14 @@ export default function MappingManager({ onNewOutput, refreshSignal }) {
       const res = await runMapping(payload);
       onNewOutput?.(res.output);
       setMessage("✅ Mapping executed");
-      await load();
+      await loadAll();
     } catch (e) {
       setMessage(`❌ ${e.message}`);
     }
   };
+
+  // Optional: filter available registry mappings by motif type (text vs image) if desired.
+  // For now, show all registered mappings; visual ones will no-op on text unless implemented to guard.
 
   return (
     <div style={{ padding: 12 }}>
@@ -115,7 +100,7 @@ export default function MappingManager({ onNewOutput, refreshSignal }) {
       {message && <p>{message}</p>}
 
       <div style={{ display: "grid", gap: 8, gridTemplateColumns: "1fr" }}>
-        {/* Input motif selector */}
+        {/* Input motif selector (restored) */}
         <label>
           Input motif:
           <select
@@ -123,7 +108,7 @@ export default function MappingManager({ onNewOutput, refreshSignal }) {
             onChange={(e) => setSelectedMotif(e.target.value)}
             style={{ marginLeft: 8, minWidth: 280 }}
           >
-            <option value="">-- choose --</option>
+            <option value="">-- choose motif --</option>
             {motifs.map((m) => (
               <option key={m.id} value={m.id}>
                 {m.name}
@@ -133,45 +118,34 @@ export default function MappingManager({ onNewOutput, refreshSignal }) {
           <button
             style={{ marginLeft: 8 }}
             type="button"
-            onClick={load}
-            title="Refresh motifs list"
+            onClick={loadAll}
+            title="Refresh lists"
           >
-            ↻ Refresh Motifs
+            ↻ Refresh
           </button>
         </label>
 
-        {/* Mapping type selector */}
+        {/* Mapping selector with hover tooltips from registry */}
         <label>
           Mapping type:
           <select
-            value={mappingType}
-            onChange={(e) => setMappingType(e.target.value)}
-            style={{ marginLeft: 8 }}
+            value={selectedMapping}
+            onChange={(e) => setSelectedMapping(e.target.value)}
+            style={{ marginLeft: 8, minWidth: 280 }}
           >
-            {BUILTIN_TYPES.map((t) => (
-              <option key={t.value} value={t.value}>
-                {t.label}
+            <option value="">-- choose mapping --</option>
+            {registry.map((m) => (
+              <option key={m.type} value={m.type} title={m.description}>
+                {m.type.replaceAll("_", " ")}
               </option>
             ))}
           </select>
         </label>
 
-        {/* Parameter inputs for specific mappings */}
-        {mappingType === "append" && (
+        {/* Parameter inputs for mappings that need a second motif */}
+        {(selectedMapping === "motif_merge" || selectedMapping === "mycelial_spread") && (
           <label>
-            Append text:
-            <input
-              value={appendText}
-              onChange={(e) => setAppendText(e.target.value)}
-              style={{ marginLeft: 8, width: "60%" }}
-              placeholder="(demo) text to append"
-            />
-          </label>
-        )}
-
-        {mappingType === "motif_merge" && (
-          <label>
-            Merge with motif:
+            Second motif:
             <select
               value={mergeMotif}
               onChange={(e) => setMergeMotif(e.target.value)}
@@ -189,25 +163,21 @@ export default function MappingManager({ onNewOutput, refreshSignal }) {
           </label>
         )}
 
-        {/* Buttons */}
         <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
           <button onClick={handleCreateSpec}>Save Mapping Spec</button>
-          <button type="button" onClick={handleRun}>Run Mapping</button>
+          <button onClick={handleRun}>Run Mapping</button>
         </div>
       </div>
 
-      {/* Mapping specs list */}
+      {/* Existing saved mapping specs (unchanged feature) */}
       <h3 style={{ marginTop: 16 }}>Existing Specs</h3>
-      {mappings.length === 0 ? (
+      {mappingSpecs.length === 0 ? (
         <p>No mapping specs yet</p>
       ) : (
         <ul>
-          {mappings.map((s) => (
-            <li
-              key={s.id || `${s.type}-${s.signature?.input_motif_id || ""}`}
-            >
-              <code>{s.type}</code> on motif{" "}
-              <code>{s.signature?.input_motif_id}</code>
+          {mappingSpecs.map((s) => (
+            <li key={s.id || `${s.type}-${s.signature?.input_motif_id || ""}`}>
+              <code>{s.type}</code> on motif <code>{s.signature?.input_motif_id}</code>
               {s.signature?.input_motif_id &&
                 motifMap[s.signature.input_motif_id] &&
                 ` (${motifMap[s.signature.input_motif_id].name})`}
