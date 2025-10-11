@@ -76,26 +76,25 @@ MAPPINGS: Dict[str, Dict[str, Any]] = {}
 
 # ---------- Helpers ----------
 def _ensure_motif_dict(payload: Dict[str, Any]) -> Dict[str, Any]:
-    """Normalize incoming motif payloads to consistent schema."""
     mid = payload.get("id") or str(uuid.uuid4())
-    name = payload.get("name") or payload.get("title") or "Untitled"
-    text = payload.get("text") or payload.get("description") or ""
-    tags = payload.get("tags") or []
-    ethics = payload.get("ethics") or {}
-    version = payload.get("version") or "1.0"
-    provenance = payload.get("provenance") or {
-        "who": "ui",
-        "when": int(time.time())
-    }
+    name = payload.get("name") or "Untitled"
+    if "image_data" in payload or payload.get("type") == "image":
+        mtype = "image"
+        content = payload.get("content") or payload.get("image_data")
+    else:
+        mtype = "text"
+        content = payload.get("content") or payload.get("text") or ""
     return {
         "id": mid,
         "name": name,
-        "text": text,
-        "tags": tags,
-        "ethics": ethics,
-        "version": version,
-        "provenance": provenance,
+        "type": mtype,
+        "content": content,
+        "tags": payload.get("tags", []),
+        "ethics": payload.get("ethics", {}),
+        "version": payload.get("version", "1.0"),
+        "provenance": payload.get("provenance", {"who": "ui", "when": int(time.time())}),
     }
+
 
 
 def _motif_model(m: Dict[str, Any]) -> Motif:

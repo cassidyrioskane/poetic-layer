@@ -1,15 +1,16 @@
 from pydantic import BaseModel, AnyUrl
-from typing import List, Dict, Optional, Literal
+from typing import List, Dict, Any, Optional, Literal
 from datetime import datetime
 
 class Motif(BaseModel):
     id: str
     name: str
-    text: str
+    type: str = "text"           # "text" or "image"
+    content: str                 # text body or base64-encoded image
     tags: List[str] = []
-    ethics: Dict[str, List[str]] = {}
-    version: str
-    provenance: Dict[str, str]
+    ethics: Dict[str, Any] = {}
+    version: str = "1.0"
+    provenance: Dict[str, Any] = {}
 
 class MappingSpec(BaseModel):
     id: str
