@@ -47,15 +47,12 @@ export default function MappingManager({ onNewOutput, refreshSignal }) {
   const selectedMotifType = selectedMotif
     ? motifMap[selectedMotif]?.type || "text"
     : "text";
+
   const filteredRegistry = registry.filter((m) => {
-    if (selectedMotifType === "image") {
-      // only visual mappings for images
-      return m.type === "color_drift" || m.type === "symbol_mirror";
-    } else {
-      // exclude purely visual mappings for text motifs
-      return !["color_drift", "symbol_mirror"].includes(m.type);
-    }
+    if (!m.domain) return true; // fallback if backend hasn't tagged it yet
+    return m.domain === (selectedMotifType === "image" ? "image" : "text");
   });
+
 
   // --- Create spec ---
   const handleCreateSpec = async () => {

@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # --- Copy requirements and install Python deps ---
 COPY requirements.txt .
 # Add fallback install for Pillow in case requirements.txt doesn’t list it
-RUN pip install --no-cache-dir -r requirements.txt Pillow
+RUN pip install --no-cache-dir -r requirements.txt Pillow numpy
 
 # --- Copy shared packages and service code ---
 COPY packages ./packages

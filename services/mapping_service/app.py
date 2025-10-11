@@ -168,9 +168,14 @@ def create_mapping(spec_payload: Dict[str, Any] = Body(...)):
 def list_registry_mappings():
     from services.mapping_service.mappings import MAPPING_META
     return [
-        {"type": name, "description": meta.get("description", "No description available.")}
+        {
+            "type": name,
+            "description": meta.get("description", "No description available."),
+            "domain": meta.get("domain", "text"),  # 👈 include domain
+        }
         for name, meta in MAPPING_META.items()
     ]
+
 
 # ---------- Execute a Mapping ----------
 @app.post("/mappings/run")
