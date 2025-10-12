@@ -54,6 +54,7 @@ def auto_seed():
 
 # ---------- CORS ----------
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -61,12 +62,14 @@ app.add_middleware(
         "http://127.0.0.1:3000",
         "http://frontend",
         "http://frontend:80",
-        "http://localhost:3000",
+        "https://<your-username>.github.io",  # ✅ GitHub Pages main domain
+        "https://<your-username>.github.io/<your-repo-name>"  # ✅ exact repo URL
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 
 # ---------- In-memory stores ----------
