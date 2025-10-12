@@ -1,27 +1,29 @@
+# services/mapping_service/app.py
 from threading import Thread
 from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Dict, Any
 import os, time, uuid
-from services.mapping_service import seed
-from services.mapping_service import mappings
+from services.mapping_service import seed, mappings
+
 
 # ---------- Models ----------
 try:
     from packages.schemas.models import Motif, MappingSpec  # type: ignore
 except Exception:
-    # Minimal fallback models so this file runs even if packaging paths shift.
     from pydantic import BaseModel
     from typing import List, Dict, Any
 
     class Motif(BaseModel):
         id: str
         name: str
-        text: str
+        text: str = ""
         tags: List[str] = []
         ethics: Dict[str, Any] = {}
         version: str = "1.0"
         provenance: Dict[str, Any] = {}
+        type: str = "text"
+        content: str | None = None
 
     class MappingSpec(BaseModel):
         id: str
@@ -37,18 +39,23 @@ except Exception:
 
 # ---------- Setup ----------
 mappings.discover_mappings()
-
 app = FastAPI(title="Mapping Service (Poetic Layer)")
 
 
 # ---------- Automatic Seeding ----------
 @app.on_event("startup")
 def auto_seed():
-    """Run seeding asynchronously after app startup."""
+    """
+    Automatically seed default motifs and image motifs on startup.
+    Ensures the app always has base content, even after container restarts.
+    """
     def _seed_async():
-        # small delay to ensure endpoints are live
-        time.sleep(1.0)
-        seed.seed_if_empty()
+        time.sleep(1.0)  # delay so server is live
+        try:
+            seed.seed_if_empty()
+        except Exception as e:
+            print(f"[startup] Seeding failed: {e}")
+
     Thread(target=_seed_async, daemon=True).start()
 
 
@@ -62,14 +69,16 @@ app.add_middleware(
         "http://127.0.0.1:3000",
         "http://frontend",
         "http://frontend:80",
-        "https://<your-username>.github.io",  # ✅ GitHub Pages main domain
-        "https://<your-username>.github.io/<your-repo-name>"  # ✅ exact repo URL
+        # ✅ GitHub Pages deployment
+        "https://cassidyrioskane.github.io",
+        "https://cassidyrioskane.github.io/poetic-layer",
+        # ✅ Render preview / alternate frontends (optional safety)
+        "https://poetic-layer-backend.onrender.com",
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 
 # ---------- In-memory stores ----------
@@ -81,23 +90,28 @@ MAPPINGS: Dict[str, Dict[str, Any]] = {}
 def _ensure_motif_dict(payload: Dict[str, Any]) -> Dict[str, Any]:
     mid = payload.get("id") or str(uuid.uuid4())
     name = payload.get("name") or "Untitled"
-    if "image_data" in payload or payload.get("type") == "image":
+
+    # Handle image vs text
+    if payload.get("type") == "image" or "image_data" in payload:
         mtype = "image"
         content = payload.get("content") or payload.get("image_data")
+        text = ""
     else:
         mtype = "text"
-        content = payload.get("content") or payload.get("text") or ""
+        text = payload.get("content") or payload.get("text") or ""
+        content = None
+
     return {
         "id": mid,
         "name": name,
         "type": mtype,
+        "text": text,
         "content": content,
         "tags": payload.get("tags", []),
         "ethics": payload.get("ethics", {}),
         "version": payload.get("version", "1.0"),
         "provenance": payload.get("provenance", {"who": "ui", "when": int(time.time())}),
     }
-
 
 
 def _motif_model(m: Dict[str, Any]) -> Motif:
@@ -132,41 +146,13 @@ def delete_motif(motif_id: str):
     return {"ok": True}
 
 
-# ---------- Mapping Spec Endpoints ----------
+# ---------- Mapping Registry ----------
 @app.get("/mappings")
 def list_mappings():
     from services.mapping_service.mappings import MAPPING_META
-    return [
-        {"type": name, "description": meta["description"]}
-        for name, meta in MAPPING_META.items()
-    ]
+    return [{"type": name, "description": meta["description"]} for name, meta in MAPPING_META.items()]
 
 
-
-@app.get("/mappings/{mapping_id}")
-def get_mapping(mapping_id: str):
-    spec = MAPPINGS.get(mapping_id)
-    if not spec:
-        raise HTTPException(404, "Mapping not found")
-    return spec
-
-
-@app.post("/mappings")
-def create_mapping(spec_payload: Dict[str, Any] = Body(...)):
-    # Accept flexible payload; enforce id/type minimally
-    if "id" not in spec_payload:
-        spec_payload["id"] = str(uuid.uuid4())
-    if "type" not in spec_payload:
-        raise HTTPException(422, "Mapping 'type' is required")
-    spec_payload.setdefault("signature", {})
-    spec_payload.setdefault("constraints", {})
-    spec_payload.setdefault("params_schema", {})
-    spec_payload.setdefault("tests", [])
-    spec_payload.setdefault("version", "1.0")
-    MAPPINGS[spec_payload["id"]] = spec_payload
-    return spec_payload
-
-# --- Registry (discovered mapping functions + docstrings) ---
 @app.get("/registry/mappings")
 def list_registry_mappings():
     from services.mapping_service.mappings import MAPPING_META
@@ -174,7 +160,7 @@ def list_registry_mappings():
         {
             "type": name,
             "description": meta.get("description", "No description available."),
-            "domain": meta.get("domain", "text"),  # 👈 include domain
+            "domain": meta.get("domain", "text"),
         }
         for name, meta in MAPPING_META.items()
     ]
@@ -183,14 +169,11 @@ def list_registry_mappings():
 # ---------- Execute a Mapping ----------
 @app.post("/mappings/run")
 def run_mapping(spec_payload: Dict[str, Any] = Body(...)):
-    """
-    Executes any registered mapping function on the given motif.
-    Uses the global mappings.MAPPING_REGISTRY rather than hard-coded demos.
-    """
     mtype = spec_payload.get("type")
     signature = spec_payload.get("signature") or {}
     params = spec_payload.get("params") or {}
     input_id = signature.get("input_motif_id")
+
     if not input_id:
         raise HTTPException(422, "signature.input_motif_id is required")
 
@@ -198,9 +181,8 @@ def run_mapping(spec_payload: Dict[str, Any] = Body(...)):
     if not src:
         raise HTTPException(404, "Input motif not found")
 
-    # --- Dynamic dispatch using registered mappings ---
     func = mappings.MAPPING_REGISTRY.get(mtype)
-    print(f"RUN_MAPPING: type={mtype}, func={func}")
+    print(f"[run_mapping] Executing: {mtype} -> {func}")
 
     if not func:
         raise HTTPException(404, f"Unknown mapping type: {mtype}")
@@ -210,8 +192,8 @@ def run_mapping(spec_payload: Dict[str, Any] = Body(...)):
     except Exception as e:
         raise HTTPException(500, f"Mapping '{mtype}' failed: {e}")
 
-    # --- Detect image vs text output automatically ---
-    if isinstance(out_text, str) and out_text.strip().startswith("iVBOR"):  # base64-encoded PNG/JPEG magic
+    # Detect image output (base64-encoded image data)
+    if isinstance(out_text, str) and out_text.strip().startswith("iVBOR"):
         motif_type = "image"
         motif_field = {"content": out_text}
     else:
@@ -234,10 +216,11 @@ def run_mapping(spec_payload: Dict[str, Any] = Body(...)):
     })
     MOTIFS[out["id"]] = out
 
-    metrics = {
-        "runtime_s": 0.0,
-        "mapping_type": mtype,
-        "source_id": src["id"],
+    return {
+        "output": out,
+        "metrics": {
+            "runtime_s": 0.0,
+            "mapping_type": mtype,
+            "source_id": src["id"],
+        },
     }
-
-    return {"output": out, "metrics": metrics}
