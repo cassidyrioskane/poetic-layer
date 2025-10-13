@@ -11,6 +11,12 @@ from pathlib import Path
 MAPPING_REGISTRY = {}
 MAPPING_META = {}
 
+def get_text(motif):
+    """Returns textual content from a motif (handles new 'content' field)."""
+    if not motif:
+        return ""
+    return motif.get("text") or motif.get("content") or ""
+
 def discover_mappings(base_package: str = __name__):
     """Recursively import mapping modules and store metadata."""
     root = Path(__file__).parent

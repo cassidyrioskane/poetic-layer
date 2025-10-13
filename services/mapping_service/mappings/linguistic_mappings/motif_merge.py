@@ -1,4 +1,5 @@
 import random
+from services.mapping_service.mappings import get_text
 
 def motif_merge(motif, params=None):
     """Interweaves two motifs at the word level, forming a hybrid text that merges their semantic DNA."""

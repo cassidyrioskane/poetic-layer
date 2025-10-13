@@ -1,4 +1,5 @@
 import random
+from services.mapping_service.mappings import get_text
 
 def mycelial_spread(motif, params=None):
     """Combines two texts through stochastic blending, imitating the entangled growth of mycelial networks."""

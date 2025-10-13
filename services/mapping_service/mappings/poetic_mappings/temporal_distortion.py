@@ -1,4 +1,5 @@
 import random, re
+from services.mapping_service.mappings import get_text
 
 def temporal_distortion(motif, params=None):
     """Alters time perception within the motif by inserting temporal markers that fold or stretch narrative duration."""

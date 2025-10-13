@@ -1,4 +1,5 @@
 import random, re
+from services.mapping_service.mappings import get_text
 
 def echo_gradient(motif, params=None):
     """Creates recursive echoes of the motif, repeating and mutating phrases like an evolving memory."""
