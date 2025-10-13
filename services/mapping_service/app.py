@@ -60,25 +60,23 @@ def auto_seed():
 
 
 # ---------- CORS ----------
-FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
+GITHUB_PAGES_URL = "https://cassidyrioskane.github.io"
+GITHUB_REPO_URL = f"{GITHUB_PAGES_URL}/poetic-layer"  # replace with your repo name exactly
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        FRONTEND_URL,
+        "http://localhost:3000",
         "http://127.0.0.1:3000",
-        "http://frontend",
-        "http://frontend:80",
-        # ✅ GitHub Pages deployment
-        "https://cassidyrioskane.github.io",
-        "https://cassidyrioskane.github.io/poetic-layer",
-        # ✅ Render preview / alternate frontends (optional safety)
+        GITHUB_PAGES_URL,
+        GITHUB_REPO_URL,
         "https://poetic-layer-backend.onrender.com",
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 
 # ---------- In-memory stores ----------
