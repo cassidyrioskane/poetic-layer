@@ -4,7 +4,7 @@ from services.mapping_service.mappings import get_text
 def echo_gradient(motif, params=None):
     """Creates recursive echoes of the motif, repeating and mutating phrases like an evolving memory."""
 
-    text = motif.get("content", "")
+    text = get_text(motif)
     sentences = re.split(r'(?<=[.!?]) +', text)
     echoes = []
     for s in sentences:

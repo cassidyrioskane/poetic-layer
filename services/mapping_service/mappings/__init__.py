@@ -12,10 +12,17 @@ MAPPING_REGISTRY = {}
 MAPPING_META = {}
 
 def get_text(motif):
-    """Returns textual content from a motif (handles new 'content' field)."""
+    """
+    Safely extracts the text content of a motif.
+    Supports both legacy ('text') and unified ('content') field names.
+    Returns an empty string if the motif has no textual content.
+    """
     if not motif:
         return ""
+    if isinstance(motif, str):
+        return motif
     return motif.get("text") or motif.get("content") or ""
+
 
 def discover_mappings(base_package: str = __name__):
     """Recursively import mapping modules and store metadata."""

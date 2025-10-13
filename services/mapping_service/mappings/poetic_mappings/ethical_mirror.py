@@ -1,4 +1,5 @@
 import re
+from services.mapping_service.mappings import get_text
 
 antonyms = {
     "light": "dark", "bright": "dim", "open": "closed", "rise": "fall",
@@ -8,7 +9,7 @@ antonyms = {
 def ethical_mirror(motif, params=None):
     """Inverts the moral or emotional polarity of the motif by replacing terms with their semantic opposites."""
 
-    text = motif.get("content", "")
+    text = get_text(motif)
     for k, v in antonyms.items():
         text = re.sub(rf"\b{k}\b", v, text, flags=re.IGNORECASE)
     return text

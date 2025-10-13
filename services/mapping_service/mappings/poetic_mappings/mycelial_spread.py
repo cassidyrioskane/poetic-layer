@@ -5,7 +5,7 @@ def mycelial_spread(motif, params=None):
     """Combines two texts through stochastic blending, imitating the entangled growth of mycelial networks."""
 
     others = params.get("other_text", "")
-    a, b = motif.get("content", "").split(), others.split()
+    a, b = get_text(motif).split(), others.split()
     merged = []
     while a or b:
         if random.random() < 0.5 and a:
