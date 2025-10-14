@@ -179,19 +179,26 @@ def run_mapping(spec_payload: Dict[str, Any] = Body(...)):
     if not src:
         raise HTTPException(404, "Input motif not found")
 
+    # --- Normalize for backward compatibility ---
+    if src.get("type") == "text" and "text" not in src and "content" in src:
+        src = dict(src)  # avoid mutating the original in memory
+        src["text"] = src["content"]
+
+    # --- Lookup mapping function ---
     func = mappings.MAPPING_REGISTRY.get(mtype)
     print(f"[run_mapping] Executing: {mtype} -> {func}")
 
     if not func:
         raise HTTPException(404, f"Unknown mapping type: {mtype}")
 
+    # --- Execute mapping ---
     try:
         out_text = func(src, params)
     except Exception as e:
         raise HTTPException(500, f"Mapping '{mtype}' failed: {e}")
 
-    # Detect image output (base64-encoded image data)
-    if isinstance(out_text, str) and out_text.strip().startswith("iVBOR"):
+    # --- Detect image vs text output automatically ---
+    if isinstance(out_text, str) and out_text.strip().startswith("iVBOR"):  # base64-encoded image
         motif_type = "image"
         motif_field = {"content": out_text}
     else:
@@ -214,11 +221,11 @@ def run_mapping(spec_payload: Dict[str, Any] = Body(...)):
     })
     MOTIFS[out["id"]] = out
 
-    return {
-        "output": out,
-        "metrics": {
-            "runtime_s": 0.0,
-            "mapping_type": mtype,
-            "source_id": src["id"],
-        },
+    metrics = {
+        "runtime_s": 0.0,
+        "mapping_type": mtype,
+        "source_id": src["id"],
     }
+
+    return {"output": out, "metrics": metrics}
+
