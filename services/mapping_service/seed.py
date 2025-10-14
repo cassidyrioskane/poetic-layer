@@ -79,33 +79,24 @@ def _img_to_b64(path):
 
 
 def seed_if_empty():
-    """Seeds text and image motifs if none exist yet on the running service."""
-    time.sleep(1.0)  # slight delay to let server start
+    from services.mapping_service.app import MOTIFS, _ensure_motif_dict
 
     try:
-        r = requests.get(f"{BASE_URL}/motifs")
-        if r.status_code != 200:
-            print(f"[seed] Unable to query motifs: {r.status_code}")
-            return
-
-        existing = r.json()
-        if existing:
-            print(f"[seed] Motifs already exist ({len(existing)} found); skipping seeding.")
+        # check if motifs already exist
+        if MOTIFS:
+            print("[seed] Motifs already loaded; skipping seeding.")
             return
 
         print("[seed] No motifs detected — seeding defaults...")
 
-        # ---- Seed text motifs ----
+        # --- Add text motifs directly into memory ---
         for m in motifs:
-            res = requests.post(f"{BASE_URL}/motifs", json=m)
-            if res.status_code == 200:
-                print(f"[seed] Seeded: {m['name']}")
-            else:
-                print(f"[seed] Failed ({res.status_code}): {res.text}")
+            motif_obj = _ensure_motif_dict(m)
+            MOTIFS[motif_obj["id"]] = motif_obj
+            print(f"[seed] Seeded: {motif_obj['name']}")
 
-        # ---- Seed image motifs ----
+        # --- Add image motifs directly into memory ---
         img_dir = os.path.join(os.path.dirname(__file__), "seed_images")
-        os.makedirs(img_dir, exist_ok=True)
         img_files = [
             ("River Texture", "river_texture.png"),
             ("Mirror Study", "mirror_study.png"),
@@ -114,23 +105,18 @@ def seed_if_empty():
 
         for name, fname in img_files:
             path = os.path.join(img_dir, fname)
-            if not os.path.exists(path):
-                print(f"[seed] Missing image file: {fname}")
-                continue
-
-            img_b64 = _img_to_b64(path)
-            payload = {
-                "name": name,
-                "type": "image",
-                "content": img_b64,
-            }
-            res = requests.post(f"{BASE_URL}/motifs", json=payload)
-            if res.status_code == 200:
+            if os.path.exists(path):
+                b64_data = _img_to_b64(path)
+                motif_obj = _ensure_motif_dict({
+                    "name": name,
+                    "type": "image",
+                    "content": b64_data,
+                })
+                MOTIFS[motif_obj["id"]] = motif_obj
                 print(f"[seed] Seeded image motif: {name}")
-            else:
-                print(f"[seed] Failed to seed image ({res.status_code}): {res.text}")
 
         print("[seed] Seeding complete.")
 
     except Exception as e:
         print(f"[seed] Exception during seeding: {e}")
+

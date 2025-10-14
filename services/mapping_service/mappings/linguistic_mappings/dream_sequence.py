@@ -4,7 +4,7 @@ from services.mapping_service.mappings import get_text
 def dream_sequence(motif, params=None):
     """Inserts surreal fragments into a motif, turning it into a drifting narrative of associative imagery."""
 
-    get_text(motif)
+    text = get_text(motif)
     fragments = text.split(". ")
     inserts = [
         "The air ripples.",
