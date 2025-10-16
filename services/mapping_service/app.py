@@ -3,9 +3,13 @@ from threading import Thread
 from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Dict, Any
-import os, time, uuid
+import os, time, uuid, json
 from services.mapping_service import seed, mappings
 
+DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
+os.makedirs(DATA_DIR, exist_ok=True)
+MOTIFS_PATH = os.path.join(DATA_DIR, "motifs.json")
+MAPPINGS_PATH = os.path.join(DATA_DIR, "mappings.json")
 
 # ---------- Models ----------
 try:
@@ -36,60 +40,84 @@ except Exception:
         score: float | None = None
         version: str = "1.0"
 
-
 # ---------- Setup ----------
 mappings.discover_mappings()
 app = FastAPI(title="Mapping Service (Poetic Layer)")
-
-
-# ---------- Automatic Seeding ----------
-@app.on_event("startup")
-def auto_seed():
-    """
-    Automatically seed default motifs and image motifs on startup.
-    Ensures the app always has base content, even after container restarts.
-    """
-    def _seed_async():
-        time.sleep(1.0)  # delay so server is live
-        try:
-            seed.seed_if_empty()
-        except Exception as e:
-            print(f"[startup] Seeding failed: {e}")
-
-    Thread(target=_seed_async, daemon=True).start()
-
-
-# ---------- CORS ----------
-GITHUB_PAGES_URL = "https://cassidyrioskane.github.io"
-GITHUB_REPO_URL = f"{GITHUB_PAGES_URL}/poetic-layer"  # replace with your repo name exactly
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        GITHUB_PAGES_URL,
-        GITHUB_REPO_URL,
-        "https://poetic-layer-backend.onrender.com",
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-
 
 # ---------- In-memory stores ----------
 MOTIFS: Dict[str, Dict[str, Any]] = {}
 MAPPINGS: Dict[str, Dict[str, Any]] = {}
 
+# ---------- Persistence ----------
+def save_state():
+    try:
+        with open(MOTIFS_PATH, "w", encoding="utf-8") as f:
+            json.dump(MOTIFS, f, ensure_ascii=False, indent=2)
+        with open(MAPPINGS_PATH, "w", encoding="utf-8") as f:
+            json.dump(MAPPINGS, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"[persist] Failed to save state: {e}")
+
+def load_state():
+    try:
+        if os.path.exists(MOTIFS_PATH):
+            with open(MOTIFS_PATH, "r", encoding="utf-8") as f:
+                MOTIFS.update(json.load(f))
+        if os.path.exists(MAPPINGS_PATH):
+            with open(MAPPINGS_PATH, "r", encoding="utf-8") as f:
+                MAPPINGS.update(json.load(f))
+        if MOTIFS:
+            print(f"[persist] Loaded {len(MOTIFS)} motifs from disk.")
+        if MAPPINGS:
+            print(f"[persist] Loaded {len(MAPPINGS)} mappings from disk.")
+    except Exception as e:
+        print(f"[persist] Failed to load state: {e}")
+
+# ---------- Automatic Seeding ----------
+@app.on_event("startup")
+def auto_seed():
+    """
+    Automatically load saved motifs, then seed defaults if none exist.
+    Ensures the app always has base content, even after restarts.
+    """
+    load_state()
+
+    def _seed_async():
+        time.sleep(1.0)
+        try:
+            if not MOTIFS:
+                seed.seed_if_empty()
+                save_state()
+        except Exception as e:
+            print(f"[startup] Seeding failed: {e}")
+
+    Thread(target=_seed_async, daemon=True).start()
+
+# ---------- CORS ----------
+GITHUB_USER = "cassidyrioskane"
+REPO_NAME = "poetic-layer"
+
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    f"https://{GITHUB_USER}.github.io",
+    f"https://{GITHUB_USER}.github.io/{REPO_NAME}",
+    "https://poetic-layer-backend.onrender.com",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # ---------- Helpers ----------
 def _ensure_motif_dict(payload: Dict[str, Any]) -> Dict[str, Any]:
     mid = payload.get("id") or str(uuid.uuid4())
     name = payload.get("name") or "Untitled"
 
-    # Handle image vs text
     if payload.get("type") == "image" or "image_data" in payload:
         mtype = "image"
         content = payload.get("content") or payload.get("image_data")
@@ -111,16 +139,10 @@ def _ensure_motif_dict(payload: Dict[str, Any]) -> Dict[str, Any]:
         "provenance": payload.get("provenance", {"who": "ui", "when": int(time.time())}),
     }
 
-
-def _motif_model(m: Dict[str, Any]) -> Motif:
-    return Motif(**m)  # type: ignore
-
-
 # ---------- Motif Endpoints ----------
 @app.get("/motifs")
 def list_motifs():
     return list(MOTIFS.values())
-
 
 @app.get("/motifs/{motif_id}")
 def get_motif(motif_id: str):
@@ -129,27 +151,25 @@ def get_motif(motif_id: str):
         raise HTTPException(404, "Motif not found")
     return m
 
-
 @app.post("/motifs")
 def create_motif(motif_payload: Dict[str, Any] = Body(...)):
     m = _ensure_motif_dict(motif_payload)
     MOTIFS[m["id"]] = m
+    save_state()
     return m
-
 
 @app.delete("/motifs/{motif_id}")
 def delete_motif(motif_id: str):
     if motif_id in MOTIFS:
         del MOTIFS[motif_id]
+        save_state()
     return {"ok": True}
-
 
 # ---------- Mapping Registry ----------
 @app.get("/mappings")
 def list_mappings():
     from services.mapping_service.mappings import MAPPING_META
     return [{"type": name, "description": meta["description"]} for name, meta in MAPPING_META.items()]
-
 
 @app.get("/registry/mappings")
 def list_registry_mappings():
@@ -162,7 +182,6 @@ def list_registry_mappings():
         }
         for name, meta in MAPPING_META.items()
     ]
-
 
 # ---------- Execute a Mapping ----------
 @app.post("/mappings/run")
@@ -179,26 +198,21 @@ def run_mapping(spec_payload: Dict[str, Any] = Body(...)):
     if not src:
         raise HTTPException(404, "Input motif not found")
 
-    # --- Normalize for backward compatibility ---
     if src.get("type") == "text" and "text" not in src and "content" in src:
-        src = dict(src)  # avoid mutating the original in memory
+        src = dict(src)
         src["text"] = src["content"]
 
-    # --- Lookup mapping function ---
     func = mappings.MAPPING_REGISTRY.get(mtype)
     print(f"[run_mapping] Executing: {mtype} -> {func}")
-
     if not func:
         raise HTTPException(404, f"Unknown mapping type: {mtype}")
 
-    # --- Execute mapping ---
     try:
         out_text = func(src, params)
     except Exception as e:
         raise HTTPException(500, f"Mapping '{mtype}' failed: {e}")
 
-    # --- Detect image vs text output automatically ---
-    if isinstance(out_text, str) and out_text.strip().startswith("iVBOR"):  # base64-encoded image
+    if isinstance(out_text, str) and out_text.strip().startswith("iVBOR"):
         motif_type = "image"
         motif_field = {"content": out_text}
     else:
@@ -220,12 +234,7 @@ def run_mapping(spec_payload: Dict[str, Any] = Body(...)):
         },
     })
     MOTIFS[out["id"]] = out
+    save_state()
 
-    metrics = {
-        "runtime_s": 0.0,
-        "mapping_type": mtype,
-        "source_id": src["id"],
-    }
-
+    metrics = {"runtime_s": 0.0, "mapping_type": mtype, "source_id": src["id"]}
     return {"output": out, "metrics": metrics}
-
